@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/Common/">
+    <Project Path="Common/ViBuild.Application/ViBuild.Application.csproj" Id="849d6bff-1c29-4f92-9761-97676282460a" />
+  </Folder>
+  <Folder Name="/Core/">
+    <Project Path="Core/ViBuild.Application/ViBuild.Application.csproj" Id="1fd7cb36-2ff0-46c4-9d3d-af3d7d36595c" />
+    <Project Path="Core/ViBuild.Domain/ViBuild.Domain.csproj" Id="e5543071-9921-4e00-a134-fca8d5a4a130" />
+    <Project Path="Core/ViBuild.Infrastructure/ViBuild.Infrastructure.csproj" Id="5a00e2fe-a045-4bef-827e-c363834f8778" />
+  </Folder>
+  <Folder Name="/GeneratedProjects/" />
+  <Folder Name="/Jobs/">
+    <Project Path="Jobs/ViBuild.Migration/ViBuild.Migration.csproj" Id="288e314e-636b-4edf-a5a9-8d4e4f06f389" />
+  </Folder>
+  <Folder Name="/Web/">
+    <Project Path="Web/ViBuild.Api/ViBuild.Api.csproj" Id="b076422e-f6e9-4a28-8c73-37dcef7b9de2" />
+  </Folder>
+</Solution>
