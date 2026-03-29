@@ -26,6 +26,15 @@ public class FeatureService : IFeatureService
         return feature.ToDto();
     }
 
+    public async Task<FeatureDto?> UpdateAsync(int id, UpdateFeatureDto dto)
+    {
+        var feature = await _context.Features.FindAsync(id);
+        if (feature is null) return null;
+        feature.ApplyUpdate(dto);
+        await _context.SaveChangesAsync();
+        return feature.ToDto();
+    }
+
     public async Task<bool> DeleteAsync(int id)
     {
         var feature = await _context.Features.FindAsync(id);

@@ -30,6 +30,13 @@ public class FeaturesController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = feature.Id }, feature);
     }
 
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<FeatureDto>> Update(int id, [FromBody] UpdateFeatureDto dto)
+    {
+        var feature = await _featureService.UpdateAsync(id, dto);
+        return feature is null ? NotFound() : Ok(feature);
+    }
+
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id) =>
         await _featureService.DeleteAsync(id) ? NoContent() : NotFound();

@@ -16,10 +16,12 @@ public class Project
     public ProjectStatus Status { get; set; } = ProjectStatus.Pending;
     public DateTime? GeneratedAt { get; set; }
     public string? FilePath { get; set; }
+    public string? ApiJson { get; set; }
 
     // Navigation
     public User User { get; set; } = null!;
     public ICollection<ProjectFeature> ProjectFeatures { get; set; } = new List<ProjectFeature>();
     public ICollection<LLMLog> LLMLogs { get; set; } = new List<LLMLog>();
+    public ICollection<ProjectMDFile> ProjectMDFiles { get; set; } = new List<ProjectMDFile>();
 }
 

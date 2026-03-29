@@ -49,10 +49,17 @@ export interface CreateRoleDto {
 export interface FeatureDto {
   id: number;
   name: string;
+  description?: string;
 }
 
 export interface CreateFeatureDto {
   name: string;
+  description?: string;
+}
+
+export interface UpdateFeatureDto {
+  name: string;
+  description?: string;
 }
 
 // ─── Project ──────────────────────────────────────────────────────────────────
@@ -70,6 +77,7 @@ export interface ProjectDto {
   status: ProjectStatus;
   generatedAt?: string;
   filePath?: string;
+  apiJson?: string;
 }
 
 export interface CreateProjectDto {
@@ -95,11 +103,12 @@ export interface GenerateProjectRequestDto {
   userId: number;
   projectName: string;
   siteType: string;
-  features: string[];
   designFramework?: string;
   theme?: string;
   figmaLink?: string;
   description?: string;
+  features: number[];
+  mdFileIds?: number[];
 }
 
 export interface GenerateProjectResponseDto {
@@ -115,6 +124,7 @@ export type LLMLogStatus = "Pending" | "Success" | "Failed";
 export interface LLMLogDto {
   id: number;
   projectId: number;
+  stepType?: string;
   prompt?: string;
   response?: string;
   tokensUsed: number;
@@ -122,13 +132,9 @@ export interface LLMLogDto {
   createdAt: string;
 }
 
-// ─── MD File ──────────────────────────────────────────────────────────────────
-export type MDFileType = "Skills" | "Agents" | "Templates" | "Tools";
-
 export interface MDFileDto {
   id: number;
   fileName: string;
-  fileType?: MDFileType;
   content: string;
   createdAt: string;
   updatedAt?: string;
@@ -136,12 +142,33 @@ export interface MDFileDto {
 
 export interface CreateMDFileDto {
   fileName: string;
-  fileType?: MDFileType;
   content: string;
 }
 
 export interface UpdateMDFileDto {
   fileName?: string;
-  fileType?: MDFileType;
   content?: string;
+}
+
+// ─── Project MD Files ─────────────────────────────────────────────────────────
+export interface ProjectMDFileDto {
+  id: number;
+  projectId: number;
+  mdFileId: number;
+  mdFileName: string;
+  stepOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateProjectMDFileDto {
+  mdFileId: number;
+  stepOrder: number;
+  isActive?: boolean;
+}
+
+export interface UpdateProjectMDFileDto {
+  stepOrder?: number;
+  isActive?: boolean;
 }

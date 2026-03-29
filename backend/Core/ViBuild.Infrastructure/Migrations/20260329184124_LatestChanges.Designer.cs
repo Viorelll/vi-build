@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ViBuild.Infrastructure.Data;
@@ -11,9 +12,11 @@ using ViBuild.Infrastructure.Data;
 namespace ViBuild.Infrastructure.Migrations
 {
     [DbContext(typeof(ViBuildDbContext))]
-    partial class ViBuildDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260329184124_LatestChanges")]
+    partial class LatestChanges
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

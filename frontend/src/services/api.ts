@@ -5,6 +5,7 @@ import type {
   UpdateUserProfileDto,
   FeatureDto,
   CreateFeatureDto,
+  UpdateFeatureDto,
   ProjectDto,
   CreateProjectDto,
   UpdateProjectDto,
@@ -14,6 +15,9 @@ import type {
   MDFileDto,
   CreateMDFileDto,
   UpdateMDFileDto,
+  ProjectMDFileDto,
+  CreateProjectMDFileDto,
+  UpdateProjectMDFileDto,
 } from "../types/api";
 
 const api = axios.create({ baseURL: "/api" });
@@ -49,6 +53,8 @@ export const getFeatures = () =>
   api.get<FeatureDto[]>("/features").then((r) => r.data);
 export const createFeature = (dto: CreateFeatureDto) =>
   api.post<FeatureDto>("/features", dto).then((r) => r.data);
+export const updateFeature = (id: number, dto: UpdateFeatureDto) =>
+  api.put<FeatureDto>(`/features/${id}`, dto).then((r) => r.data);
 export const deleteFeature = (id: number) => api.delete(`/features/${id}`);
 
 // ─── Projects ─────────────────────────────────────────────────────────────────
@@ -88,3 +94,30 @@ export const createMDFile = (dto: CreateMDFileDto) =>
 export const updateMDFile = (id: number, dto: UpdateMDFileDto) =>
   api.put<MDFileDto>(`/mdfiles/${id}`, dto).then((r) => r.data);
 export const deleteMDFile = (id: number) => api.delete(`/mdfiles/${id}`);
+
+// ─── Project MD Files ─────────────────────────────────────────────────────────
+export const getProjectMDFiles = (projectId: number) =>
+  api
+    .get<ProjectMDFileDto[]>(`/projects/${projectId}/mdfiles`)
+    .then((r) => r.data);
+export const getProjectMDFileById = (projectId: number, id: number) =>
+  api
+    .get<ProjectMDFileDto>(`/projects/${projectId}/mdfiles/${id}`)
+    .then((r) => r.data);
+export const createProjectMDFile = (
+  projectId: number,
+  dto: CreateProjectMDFileDto,
+) =>
+  api
+    .post<ProjectMDFileDto>(`/projects/${projectId}/mdfiles`, dto)
+    .then((r) => r.data);
+export const updateProjectMDFile = (
+  projectId: number,
+  id: number,
+  dto: UpdateProjectMDFileDto,
+) =>
+  api
+    .put<ProjectMDFileDto>(`/projects/${projectId}/mdfiles/${id}`, dto)
+    .then((r) => r.data);
+export const deleteProjectMDFile = (projectId: number, id: number) =>
+  api.delete(`/projects/${projectId}/mdfiles/${id}`);

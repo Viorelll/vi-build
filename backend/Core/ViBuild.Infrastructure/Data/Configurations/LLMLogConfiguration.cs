@@ -11,6 +11,7 @@ public class LLMLogConfiguration : IEntityTypeConfiguration<LLMLog>
         builder.HasKey(l => l.Id);
 
         builder.Property(l => l.Status).HasConversion<int>();
+        builder.Property(l => l.StepType).HasConversion<int?>();
 
         builder.HasOne(l => l.Project)
             .WithMany(p => p.LLMLogs)

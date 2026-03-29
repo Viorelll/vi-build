@@ -13,6 +13,7 @@ public class ProjectDto
     public string Status { get; set; } = null!;
     public DateTime? GeneratedAt { get; set; }
     public string? FilePath { get; set; }
+    public string? ApiJson { get; set; }
 }
 
 public class CreateProjectDto

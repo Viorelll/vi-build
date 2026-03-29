@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ViBuild.Infrastructure.Data;
@@ -11,9 +12,11 @@ using ViBuild.Infrastructure.Data;
 namespace ViBuild.Infrastructure.Migrations
 {
     [DbContext(typeof(ViBuildDbContext))]
-    partial class ViBuildDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260329160454_LLMLogStepType")]
+    partial class LLMLogStepType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -29,9 +32,6 @@ namespace ViBuild.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -102,6 +102,9 @@ namespace ViBuild.Infrastructure.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<int?>("FileType")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -117,9 +120,6 @@ namespace ViBuild.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ApiJson")
-                        .HasColumnType("text");
 
                     b.Property<string>("DesignFramework")
                         .HasMaxLength(100)
@@ -180,41 +180,6 @@ namespace ViBuild.Infrastructure.Migrations
                     b.HasIndex("FeatureId");
 
                     b.ToTable("ProjectFeatures");
-                });
-
-            modelBuilder.Entity("ViBuild.Domain.Entities.ProjectMDFile", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<int>("MDFileId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ProjectId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("StepOrder")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MDFileId");
-
-                    b.HasIndex("ProjectId", "StepOrder");
-
-                    b.ToTable("ProjectMDFiles");
                 });
 
             modelBuilder.Entity("ViBuild.Domain.Entities.Role", b =>
@@ -355,25 +320,6 @@ namespace ViBuild.Infrastructure.Migrations
                     b.Navigation("Project");
                 });
 
-            modelBuilder.Entity("ViBuild.Domain.Entities.ProjectMDFile", b =>
-                {
-                    b.HasOne("ViBuild.Domain.Entities.MDFile", "MDFile")
-                        .WithMany("ProjectMDFiles")
-                        .HasForeignKey("MDFileId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ViBuild.Domain.Entities.Project", "Project")
-                        .WithMany("ProjectMDFiles")
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("MDFile");
-
-                    b.Navigation("Project");
-                });
-
             modelBuilder.Entity("ViBuild.Domain.Entities.UserProfile", b =>
                 {
                     b.HasOne("ViBuild.Domain.Entities.User", "User")
@@ -409,18 +355,11 @@ namespace ViBuild.Infrastructure.Migrations
                     b.Navigation("ProjectFeatures");
                 });
 
-            modelBuilder.Entity("ViBuild.Domain.Entities.MDFile", b =>
-                {
-                    b.Navigation("ProjectMDFiles");
-                });
-
             modelBuilder.Entity("ViBuild.Domain.Entities.Project", b =>
                 {
                     b.Navigation("LLMLogs");
 
                     b.Navigation("ProjectFeatures");
-
-                    b.Navigation("ProjectMDFiles");
                 });
 
             modelBuilder.Entity("ViBuild.Domain.Entities.Role", b =>

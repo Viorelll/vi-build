@@ -32,6 +32,7 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IFeatureService, FeatureService>();
 builder.Services.AddScoped<ILLMLogService, LLMLogService>();
 builder.Services.AddScoped<IMDFileService, MDFileService>();
+builder.Services.AddScoped<IProjectMDFileService, ProjectMDFileService>();
 builder.Services.AddScoped<IAzureOpenAIService, AzureOpenAIService>();
 builder.Services.AddScoped<IProjectGenerationService, ProjectGenerationService>();
 

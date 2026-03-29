@@ -18,7 +18,8 @@ public static class ProjectMappings
         FigmaLink = project.FigmaLink,
         Status = project.Status.ToString(),
         GeneratedAt = project.GeneratedAt,
-        FilePath = project.FilePath
+        FilePath = project.FilePath,
+        ApiJson = project.ApiJson
     };
 
     public static Project ToEntity(this CreateProjectDto dto, int userId) => new()

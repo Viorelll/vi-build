@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -19,6 +20,13 @@ public class ProjectGenerationService : IProjectGenerationService
     private static readonly JsonSerializerOptions JsonOptions =
         new() { PropertyNameCaseInsensitive = true };
 
+    private const string SystemPrompt = """
+        You are an expert software architect and full-stack code generator.
+        For each step you will be given a prompt template describing exactly what to produce.
+        Respond ONLY with a valid JSON object in the exact schema specified in the prompt.
+        Do not include any explanation, markdown, or text outside the JSON object.
+        """;
+
     public ProjectGenerationService(
         ViBuildDbContext context,
         IAzureOpenAIService openAI,
@@ -33,20 +41,20 @@ public class ProjectGenerationService : IProjectGenerationService
     public async Task<GenerateProjectResponseDto> GenerateAsync(GenerateProjectRequestDto request)
     {
         // 1. Transform input to JSON
-        var projectJson = BuildProjectJson(request);
+        var loadProjectFeatures = await _context.Features
+            .Where(f => request.Features.Contains(f.Id))
+            .ToListAsync();
+        var projectJson = BuildProjectJson(request, loadProjectFeatures);
 
-        // 2. Load prompt context from MDFiles table
-        var skills  = await GetMDContentAsync(MDFileType.Skills);
-        var agents  = await GetMDContentAsync(MDFileType.Agents);
-        var template = await GetMDContentAsync(MDFileType.Templates);
-
-        // 3. Build prompts
-        var systemPrompt = BuildSystemPrompt(skills, agents);
-        var userPrompt   = BuildUserPrompt(template, projectJson);
-
-        // 4. Persist Project with status "generating"
+        // 2. Persist Project with status "Generating"
         var timestamp  = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+
         var folderName = $"{Sanitize(request.ProjectName)}_{timestamp}";
+
+        var MDFiles = request.MdFileIds.Select((id, index) =>
+            new ProjectMDFile { MDFileId = id, StepOrder = index + 1, IsActive = true }).ToList();
+
+        var projectFeatures = request.Features.Select(id => new ProjectFeature { FeatureId = id }).ToList();
 
         var project = new Project
         {
@@ -57,38 +65,79 @@ public class ProjectGenerationService : IProjectGenerationService
             DesignFramework = request.DesignFramework,
             Theme           = request.Theme,
             FigmaLink       = request.FigmaLink,
-            Status          = ProjectStatus.Generating
+            Status          = ProjectStatus.Generating,
+            ProjectMDFiles  = MDFiles,
+            ProjectFeatures = projectFeatures
         };
+
         _context.Projects.Add(project);
         await _context.SaveChangesAsync();
 
-        // 5. Call Azure OpenAI
-        string llmResponse;
-        int tokensUsed;
-        try
+        // 3. Load ordered step MD files (project-specific → global fallback)
+        var steps = await LoadStepsAsync(project.Id);
+
+        if (steps.Count == 0)
         {
-            (llmResponse, tokensUsed) = await _openAI.CompleteAsync(systemPrompt, userPrompt);
-        }
-        catch (Exception ex)
-        {
-            await SaveLogAsync(project, userPrompt, ex.Message, 0, LLMLogStatus.Failed);
             project.Status = ProjectStatus.Failed;
             await _context.SaveChangesAsync();
-            throw;
+            throw new InvalidOperationException(
+                "No generation step MD files found. Please seed the MDFiles table first.");
         }
 
-        // 6. Write project files to disk
-        var projectPath = Path.Combine(_outputPath, folderName);
-        WriteProjectFiles(projectPath, request, llmResponse);
+        // 4. Execute steps sequentially, accumulating context and files
+        var allFiles         = new List<StepOutputFile>();
+        string? readme       = null;
+        string? gitignore    = null;
+        var previousContext  = new StringBuilder();
 
-        // 7. Package as .zip archive
+        for (var i = 0; i < steps.Count; i++)
+        {
+            var step = steps[i];
+            var stepOrder = i + 1;
+            var userPrompt = step.Content
+                .Replace("{{PROJECT_JSON}}", projectJson)
+                .Replace("{{PREVIOUS_CONTEXT}}",
+                    previousContext.Length > 0 ? previousContext.ToString() : "(none)");
+
+            string response;
+            int tokens;
+            try
+            {
+                (response, tokens) = await _openAI.CompleteAsync(SystemPrompt, userPrompt);
+            }
+            catch (Exception ex)
+            {
+                await SaveLogAsync(project, userPrompt,
+                    ex.Message, 0, LLMLogStatus.Failed);
+                project.Status = ProjectStatus.Failed;
+                await _context.SaveChangesAsync();
+                throw;
+            }
+
+            await SaveLogAsync(project, userPrompt,
+                response, tokens, LLMLogStatus.Success);
+
+            var schema = ParseStepSchema(response);
+            if (schema?.Files is { Count: > 0 })
+                allFiles.AddRange(schema.Files);
+            if (schema?.Readme    is not null) readme    = schema.Readme;
+            if (schema?.Gitignore is not null) gitignore = schema.Gitignore;
+
+            previousContext.AppendLine(
+                $"\n## Step {stepOrder} ({step.FileName}) Output\n{response}");
+        }
+
+        // 5. Write files to disk
+        var projectPath = Path.Combine(_outputPath, folderName);
+        WriteProjectFiles(projectPath, request, allFiles, readme, gitignore);
+
+        // 6. Package as .zip archive
         var archivePath = $"{projectPath}.zip";
         if (File.Exists(archivePath)) File.Delete(archivePath);
         ZipFile.CreateFromDirectory(projectPath, archivePath);
         try { Directory.Delete(projectPath, recursive: true); } catch { /* non-critical */ }
 
-        // 8. Persist LLMLog and finalise Project
-        await SaveLogAsync(project, userPrompt, llmResponse, tokensUsed, LLMLogStatus.Success);
+        // 7. Finalise Project
         project.Status      = ProjectStatus.Generated;
         project.GeneratedAt = DateTime.UtcNow;
         project.FilePath    = archivePath;
@@ -103,99 +152,83 @@ public class ProjectGenerationService : IProjectGenerationService
         };
     }
 
-    // ── Prompt builders ───────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private string BuildProjectJson(GenerateProjectRequestDto r) =>
+    private static string BuildProjectJson(GenerateProjectRequestDto r, List<Feature> loadProjectFeatures) =>
         JsonSerializer.Serialize(new
         {
             projectName     = r.ProjectName,
             siteType        = r.SiteType,
-            features        = r.Features,
+            features        = loadProjectFeatures,
             designFramework = r.DesignFramework,
             theme           = r.Theme,
             figmaLink       = r.FigmaLink,
             description     = r.Description
         }, new JsonSerializerOptions { WriteIndented = true });
 
-    private async Task<string> GetMDContentAsync(MDFileType type) =>
-        (await _context.MDFiles
-            .Where(f => f.FileType == type)
-            .OrderBy(f => f.CreatedAt)
-            .FirstOrDefaultAsync())?.Content ?? string.Empty;
-
-    private static string BuildSystemPrompt(string skills, string agents) => $$"""
-        You are an expert software architect and full-stack code generator.
-
-        ## Skills & Technologies
-        {{skills}}
-
-        ## Agent Roles
-        {{agents}}
-
-        Generate a complete .NET + React application with this folder structure:
-          /ProjectName_timestamp
-              /backend   — ASP.NET Core Web API
-              /frontend  — React + TypeScript + Vite
-              README.md
-              .gitignore
-
-        Respond ONLY with a valid JSON object matching this exact schema — no text outside it:
+    private StepOutputSchema? ParseStepSchema(string text)
+    {
+        try
         {
-          "readme":   "<README.md content>",
-          "gitignore":"<.gitignore content>",
-          "backend":  { "files": [ { "path": "<relative>", "content": "<content>" } ] },
-          "frontend": { "files": [ { "path": "<relative>", "content": "<content>" } ] }
+            return JsonSerializer.Deserialize<StepOutputSchema>(ExtractJson(text), JsonOptions);
         }
-        """;
+        catch { return null; }
+    }
 
-    private static string BuildUserPrompt(string template, string projectJson) =>
-        string.IsNullOrWhiteSpace(template)
-            ? $"Generate a .NET + React application for this project:\n{projectJson}"
-            : template.Replace("{{PROJECT_JSON}}", projectJson);
+    private async Task<List<MDFile>> LoadStepsAsync(int projectId)
+    {
+        // Use project-specific MDFiles if configured (IsActive = true, ordered by StepOrder)
+        var projectSteps = await _context.ProjectMDFiles
+            .Where(pm => pm.ProjectId == projectId && pm.IsActive)
+            .OrderBy(pm => pm.StepOrder)
+            .Include(pm => pm.MDFile)
+            .Select(pm => pm.MDFile)
+            .ToListAsync();
 
-    // ── File generation ───────────────────────────────────────────────────────
+        if (projectSteps.Count > 0)
+            return projectSteps;
+
+        // Fallback: use all global MDFiles ordered by creation sequence.
+        return await _context.MDFiles
+            .OrderBy(f => f.Id)
+            .ToListAsync();
+    }
 
     private static void WriteProjectFiles(
-        string projectPath, GenerateProjectRequestDto request, string llmResponse)
+        string projectPath,
+        GenerateProjectRequestDto request,
+        List<StepOutputFile> allFiles,
+        string? readme,
+        string? gitignore)
     {
         Directory.CreateDirectory(Path.Combine(projectPath, "backend"));
         Directory.CreateDirectory(Path.Combine(projectPath, "frontend"));
 
-        GeneratedProjectSchema? schema = null;
-        try
-        {
-            schema = JsonSerializer.Deserialize<GeneratedProjectSchema>(
-                ExtractJson(llmResponse), JsonOptions);
-        }
-        catch { /* fallback to defaults */ }
-
         File.WriteAllText(
             Path.Combine(projectPath, "README.md"),
-            schema?.Readme ?? DefaultReadme(request));
+            readme ?? DefaultReadme(request));
 
         File.WriteAllText(
             Path.Combine(projectPath, ".gitignore"),
-            schema?.Gitignore ?? DefaultGitignore);
+            gitignore ?? DefaultGitignore);
 
-        WriteSection(projectPath, "backend",  schema?.Backend?.Files);
-        WriteSection(projectPath, "frontend", schema?.Frontend?.Files);
-    }
-
-    private static void WriteSection(string root, string section, List<GeneratedFile>? files)
-    {
-        if (files is null) return;
-        foreach (var file in files)
+        var projectRoot = Path.GetFullPath(projectPath);
+        foreach (var file in allFiles)
         {
-            var full = Path.GetFullPath(Path.Combine(root, section, file.Path.TrimStart('/', '\\')));
+            var full = Path.GetFullPath(
+                Path.Combine(projectPath, file.Path.TrimStart('/', '\\')));
+
+            if (!full.StartsWith(projectRoot, StringComparison.OrdinalIgnoreCase))
+                continue;
+
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
             File.WriteAllText(full, file.Content);
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
     private async Task SaveLogAsync(
-        Project project, string prompt, string response, int tokens, LLMLogStatus status)
+        Project project,
+        string prompt, string response, int tokens, LLMLogStatus status)
     {
         _context.LLMLogs.Add(new LLMLog
         {
@@ -259,22 +292,16 @@ public class ProjectGenerationService : IProjectGenerationService
         new(name.Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());
 }
 
-// ── Internal LLM response schema ─────────────────────────────────────────────
+// ── Internal step output schema ───────────────────────────────────────────────
 
-internal sealed class GeneratedProjectSchema
+internal sealed class StepOutputSchema
 {
-    public string? Readme   { get; set; }
+    public string? Readme    { get; set; }
     public string? Gitignore { get; set; }
-    public GeneratedSection? Backend  { get; set; }
-    public GeneratedSection? Frontend { get; set; }
+    public List<StepOutputFile>? Files { get; set; }
 }
 
-internal sealed class GeneratedSection
-{
-    public List<GeneratedFile>? Files { get; set; }
-}
-
-internal sealed class GeneratedFile
+internal sealed class StepOutputFile
 {
     public string Path    { get; set; } = null!;
     public string Content { get; set; } = null!;

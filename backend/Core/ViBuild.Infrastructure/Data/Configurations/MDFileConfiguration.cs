@@ -11,6 +11,5 @@ public class MDFileConfiguration : IEntityTypeConfiguration<MDFile>
         builder.HasKey(m => m.Id);
 
         builder.Property(m => m.FileName).IsRequired().HasMaxLength(300);
-        builder.Property(m => m.FileType).HasConversion<int?>();
     }
 }

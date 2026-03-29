@@ -1,25 +1,14 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   getMDFiles,
   createMDFile,
   updateMDFile,
   deleteMDFile,
 } from "../services/api";
-import type {
-  MDFileDto,
-  CreateMDFileDto,
-  UpdateMDFileDto,
-  MDFileType,
-} from "../types/api";
+import type { MDFileDto, CreateMDFileDto, UpdateMDFileDto } from "../types/api";
 import { useAuth } from "../contexts/AuthContext";
 
-const FILE_TYPES: MDFileType[] = ["Skills", "Agents", "Templates", "Tools"];
-
-const emptyForm: CreateMDFileDto = {
-  fileName: "",
-  fileType: undefined,
-  content: "",
-};
+const emptyForm: CreateMDFileDto = { fileName: "", content: "" };
 
 export default function MDFilesPage() {
   const { isAdmin } = useAuth();
@@ -49,7 +38,7 @@ export default function MDFilesPage() {
   };
 
   const openEdit = (f: MDFileDto) => {
-    setForm({ fileName: f.fileName, fileType: f.fileType, content: f.content });
+    setForm({ fileName: f.fileName, content: f.content });
     setIsEditing(true);
     setSelected(f);
     setShowModal(true);
@@ -62,7 +51,6 @@ export default function MDFilesPage() {
       if (isEditing && selected) {
         const dto: UpdateMDFileDto = {
           fileName: form.fileName,
-          fileType: form.fileType,
           content: form.content,
         };
         const updated = await updateMDFile(selected.id, dto);
@@ -85,7 +73,6 @@ export default function MDFilesPage() {
     try {
       await deleteMDFile(id);
       setFiles((prev) => prev.filter((f) => f.id !== id));
-      if (selected?.id === id) setSelected(null);
     } finally {
       setDeletingId(null);
     }
@@ -94,7 +81,12 @@ export default function MDFilesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">MD Files</h1>
+        <div>
+          <h1 className="text-3xl font-bold">MD Files</h1>
+          <p className="text-base-content/50 text-sm mt-0.5">
+            Manage markdown files used in the generation pipeline.
+          </p>
+        </div>
         {isAdmin && (
           <button className="btn btn-primary gap-2" onClick={openCreate}>
             <span>+</span> New File
@@ -108,60 +100,82 @@ export default function MDFilesPage() {
         </div>
       ) : files.length === 0 ? (
         <div className="card bg-base-100 shadow-sm">
-          <div className="card-body items-center py-12">
-            <span className="text-4xl">📄</span>
-            <p className="text-base-content/60 mt-2">No MD files yet.</p>
+          <div className="card-body items-center py-16">
+            <span className="text-5xl"></span>
+            <p className="text-base-content/60 mt-3 text-lg font-semibold">
+              No MD files yet.
+            </p>
+            {isAdmin && (
+              <button
+                className="btn btn-primary btn-sm mt-2"
+                onClick={openCreate}
+              >
+                Create your first file
+              </button>
+            )}
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {files.map((f) => (
-            <div key={f.id} className="card bg-base-100 shadow-sm">
-              <div className="card-body gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold line-clamp-1">{f.fileName}</h3>
-                  {f.fileType && (
-                    <span className="badge badge-primary badge-sm shrink-0">
-                      {f.fileType}
-                    </span>
+        <div className="card bg-base-100 shadow-sm overflow-x-auto">
+          <table className="table table-zebra w-full">
+            <thead>
+              <tr>
+                <th className="w-8">#</th>
+                <th>Name</th>
+                <th>Created</th>
+                <th>Updated</th>
+                {isAdmin && <th className="text-right">Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {files.map((f) => (
+                <tr key={f.id} className="hover">
+                  <td className="text-base-content/40 text-xs font-mono">
+                    {f.id}
+                  </td>
+                  <td>
+                    <span className="font-medium">{f.fileName}</span>
+                  </td>
+                  <td className="text-sm text-base-content/60">
+                    {new Date(f.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="text-sm text-base-content/60">
+                    {f.updatedAt ? (
+                      new Date(f.updatedAt).toLocaleDateString()
+                    ) : (
+                      <span className="text-base-content/30"></span>
+                    )}
+                  </td>
+                  {isAdmin && (
+                    <td>
+                      <div className="flex justify-end gap-1">
+                        <button
+                          className="btn btn-ghost btn-xs"
+                          onClick={() => openEdit(f)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="btn btn-error btn-xs"
+                          onClick={() => handleDelete(f.id)}
+                          disabled={deletingId === f.id}
+                        >
+                          {deletingId === f.id ? (
+                            <span className="loading loading-spinner loading-xs" />
+                          ) : (
+                            "Delete"
+                          )}
+                        </button>
+                      </div>
+                    </td>
                   )}
-                </div>
-                <p className="text-xs text-base-content/50 line-clamp-3 font-mono bg-base-200 rounded p-2">
-                  {f.content}
-                </p>
-                <div className="text-xs text-base-content/40">
-                  Created {new Date(f.createdAt).toLocaleDateString()}
-                  {f.updatedAt &&
-                    ` · Updated ${new Date(f.updatedAt).toLocaleDateString()}`}
-                </div>
-                {isAdmin && (
-                  <div className="card-actions justify-end gap-1">
-                    <button
-                      className="btn btn-ghost btn-xs"
-                      onClick={() => openEdit(f)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn btn-error btn-xs"
-                      onClick={() => handleDelete(f.id)}
-                      disabled={deletingId === f.id}
-                    >
-                      {deletingId === f.id ? (
-                        <span className="loading loading-spinner loading-xs" />
-                      ) : (
-                        "Delete"
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* Modal */}
       {showModal && (
         <dialog open className="modal modal-open">
           <div className="modal-box max-w-2xl">
@@ -187,33 +201,10 @@ export default function MDFilesPage() {
 
               <div className="form-control gap-1">
                 <label className="label">
-                  <span className="label-text font-medium">File Type</span>
-                </label>
-                <select
-                  className="select select-bordered w-full"
-                  value={form.fileType ?? ""}
-                  onChange={(e) =>
-                    setForm((p) => ({
-                      ...p,
-                      fileType: (e.target.value as MDFileType) || undefined,
-                    }))
-                  }
-                >
-                  <option value="">— None —</option>
-                  {FILE_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-control gap-1">
-                <label className="label">
                   <span className="label-text font-medium">Content *</span>
                 </label>
                 <textarea
-                  className="textarea textarea-bordered w-full h-48 font-mono text-xs resize-y"
+                  className="textarea textarea-bordered w-full h-56 font-mono text-xs resize-y"
                   placeholder="Markdown content..."
                   value={form.content}
                   onChange={(e) =>

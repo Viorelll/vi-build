@@ -4,7 +4,6 @@ public class MDFileDto
 {
     public int Id { get; set; }
     public string FileName { get; set; } = null!;
-    public string? FileType { get; set; }
     public string Content { get; set; } = null!;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -13,13 +12,11 @@ public class MDFileDto
 public class CreateMDFileDto
 {
     public string FileName { get; set; } = null!;
-    public string? FileType { get; set; }
     public string Content { get; set; } = null!;
 }
 
 public class UpdateMDFileDto
 {
     public string? FileName { get; set; }
-    public string? FileType { get; set; }
     public string? Content { get; set; }
 }

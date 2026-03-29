@@ -16,6 +16,7 @@ public class ViBuildDbContext : DbContext
     public DbSet<ProjectFeature> ProjectFeatures { get; set; } = null!;
     public DbSet<LLMLog> LLMLogs { get; set; } = null!;
     public DbSet<MDFile> MDFiles { get; set; } = null!;
+    public DbSet<ProjectMDFile> ProjectMDFiles { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
